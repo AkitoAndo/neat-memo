@@ -3,15 +3,6 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "features": {
-    "ghcr.io/devcontainers/features/aws-cli:1": {},
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "20"
-    },
-    "ghcr.io/devcontainers/features/python:1": {
-      "version": "3.12"
-    }
-  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -21,10 +12,11 @@
         "ms-python.vscode-pylance",
         "amazonwebservices.aws-toolkit-vscode",
         "bradlc.vscode-tailwindcss",
-        "formulahendry.auto-rename-tag"
+        "formulahendry.auto-rename-tag",
+        "anthropic.claude-code"
       ],
       "settings": {
-        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.defaultInterpreterPath": "/usr/bin/python3",
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "esbenp.prettier-vscode",
         "[python]": {
@@ -33,7 +25,7 @@
       }
     }
   },
-  "postCreateCommand": "pip install aws-sam-cli && echo 'Dev container ready!'",
+  "postCreateCommand": "pip3 install --break-system-packages aws-sam-cli aws-cdk-lib && npm install -g aws-cdk @anthropic-ai/claude-code && echo 'Dev container ready!'",
   "forwardPorts": [3000, 5173, 8000],
   "remoteUser": "vscode"
 }
