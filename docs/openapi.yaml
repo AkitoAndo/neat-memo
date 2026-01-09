@@ -1,0 +1,223 @@
+openapi: 3.0.3
+info:
+  title: Neat Memo API
+  description: メモ管理用のREST API
+  version: 1.0.0
+
+servers:
+  - url: https://api.example.com
+    description: Production server
+
+paths:
+  /hello:
+    get:
+      summary: Hello World
+      description: APIの動作確認用エンドポイント
+      operationId: getHello
+      tags:
+        - Health
+      responses:
+        '200':
+          description: 成功
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: '*'
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+                example: 'GET, OPTIONS'
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+                example: 'Content-Type'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelloResponse'
+
+  /memos:
+    get:
+      summary: メモ一覧取得
+      description: 全てのメモを取得する
+      operationId: listMemos
+      tags:
+        - Memos
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoListResponse'
+
+    post:
+      summary: メモ作成
+      description: 新しいメモを作成する
+      operationId: createMemo
+      tags:
+        - Memos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMemoRequest'
+      responses:
+        '201':
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Memo'
+
+  /memos/{memo_id}:
+    get:
+      summary: メモ取得
+      description: 指定されたIDのメモを取得する
+      operationId: getMemo
+      tags:
+        - Memos
+      parameters:
+        - $ref: '#/components/parameters/MemoId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Memo'
+        '404':
+          description: メモが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: メモ更新
+      description: 指定されたIDのメモを更新する
+      operationId: updateMemo
+      tags:
+        - Memos
+      parameters:
+        - $ref: '#/components/parameters/MemoId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemoRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Memo'
+        '404':
+          description: メモが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: メモ削除
+      description: 指定されたIDのメモを削除する
+      operationId: deleteMemo
+      tags:
+        - Memos
+      parameters:
+        - $ref: '#/components/parameters/MemoId'
+      responses:
+        '204':
+          description: 削除成功
+        '404':
+          description: メモが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    MemoId:
+      name: memo_id
+      in: path
+      required: true
+      description: メモのID
+      schema:
+        type: string
+
+  schemas:
+    HelloResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Hello World
+      required:
+        - message
+
+    Memo:
+      type: object
+      properties:
+        memo_id:
+          type: string
+          description: メモのユニークID
+          example: "abc123"
+        content:
+          type: string
+          description: メモの内容
+          example: "買い物リスト"
+      required:
+        - memo_id
+        - content
+
+    MemoListResponse:
+      type: object
+      properties:
+        memos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Memo'
+      required:
+        - memos
+
+    CreateMemoRequest:
+      type: object
+      properties:
+        content:
+          type: string
+          description: メモの内容
+          example: "新しいメモ"
+      required:
+        - content
+
+    UpdateMemoRequest:
+      type: object
+      properties:
+        content:
+          type: string
+          description: 更新するメモの内容
+          example: "更新されたメモ"
+      required:
+        - content
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: エラーメッセージ
+          example: "Memo not found"
+      required:
+        - message
+
+tags:
+  - name: Health
+    description: ヘルスチェック用エンドポイント
+  - name: Memos
+    description: メモ管理用エンドポイント
