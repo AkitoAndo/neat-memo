@@ -3,50 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeatMemo</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .container {
-            text-align: center;
-            background: white;
-            padding: 3rem;
-            border-radius: 1rem;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 1rem;
-        }
-        #message {
-            font-size: 1.5rem;
-            color: #667eea;
-            margin-top: 1rem;
-        }
-        .loading {
-            color: #999;
-        }
-        .error {
-            color: #e74c3c;
-        }
-    </style>
+    <title>NeatMemo - Infinite Canvas</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>NeatMemo</h1>
-        <div id="message" class="loading">Loading...</div>
+
+    <!-- ツールバー -->
+    <div id="toolbar">
+        <button class="tool-btn active" id="btn-text" title="ダブルクリックで配置">テキスト</button>
+        <!-- 将来の拡張用 -->
+        <button class="tool-btn" id="btn-image" disabled title="実装予定">画像</button>
+        <button class="tool-btn" id="btn-pen" disabled title="実装予定">ペン</button>
+        <button class="tool-btn" id="btn-save">保存(Console)</button>
     </div>
+
+    <!-- キャンバス領域 -->
+    <div id="canvas-area">
+        <!-- ここに動的に要素が追加されます -->
+    </div>
+
+    <!-- 設定読み込み (ローカル実行時は404になりますが無視して動作するようにJSで作ります) -->
     <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
