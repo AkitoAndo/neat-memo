@@ -141,16 +141,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /textract/jobs:
+  /ocr/jobs:
     post:
-      summary: Textract
+      summary: OCR (Bedrock Vision)
       description: |
         画像ファイルをmultipartでアップロードしてS3に保存.
-        Textractの解析ジョブをAsyncで開始.
-        結果は /textract/jobs/{job_id} で取得.
-      operationId: createTextractJob
+        Amazon Bedrockの解析ジョブをAsyncで開始.
+        結果は /ocr/jobs/{job_id} で取得.
+      operationId: createOcrJob
       tags:
-        - Textract
+        - OCR
       requestBody:
         required: true
         content:
@@ -173,7 +173,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TextractJobCreated'
+                $ref: '#/components/schemas/OcrJobCreated'
         '404':
           description: リクエストエラー (ファイルがない, 拡張子不正 など)
           content:
@@ -187,22 +187,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /textract/jobs/{job_id}:
+  /ocr/jobs/{job_id}:
     get:
-      summary: Textract解析ジョブ取得
+      summary: Ocr解析ジョブ取得
       description: job_id を指定して解析状況と、完了していれば全文テキスト結果を取得する
-      operationId: getTextractJob
+      operationId: getOcrJob
       tags: 
-        - Textract
+        - OCR
       parameters:
-        - $ref: '#/components/parameters/TextractJobId'
+        - $ref: '#/components/parameters/OcrJobId'
       responses:
         '200':
           description: 成功（状態と、完了していれば text を返す）
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TextractJobStatus'
+                $ref: '#/components/schemas/OcrJobStatus'
         '404':
           description: ジョブが見つからない
           content:
@@ -220,11 +220,11 @@ components:
       schema:
         type: string
     
-    TextractJobId:
+    OcrJobId:
       name: job_id
       in: path
       required: true
-      description: Textract解析の識別JobID
+      description: Ocr解析の識別JobID
       schema:
         type: string
         example: "job_01XXX"
@@ -284,7 +284,7 @@ components:
       required:
         - content
 
-    TextractJobCreated:
+    OcrJobCreated:
       type: object
       properties:
         job_id:
@@ -298,7 +298,7 @@ components:
           example: QUEUED
       required: [job_id, status]
 
-    TextractJobStatus:
+    OcrJobStatus:
       type: object
       properties:
         job_id:
@@ -341,5 +341,5 @@ tags:
     description: ヘルスチェック用エンドポイント
   - name: Memos
     description: メモ管理用エンドポイント
-  - name: Textract
-    description: Amazon Textract を用いた文字抽出
+  - name: OCR
+    description: 画像から文字を抽出するAPI
