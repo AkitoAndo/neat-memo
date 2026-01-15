@@ -8,7 +8,7 @@ servers:
   - url: https://api.example.com
     description: Production server
 
-paths:
+paths:          
   /hello:
     get:
       summary: Hello World
@@ -141,6 +141,75 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /ocr/jobs:
+    post:
+      summary: OCR (Bedrock Vision)
+      description: |
+        画像ファイルをmultipartでアップロードしてS3に保存.
+        Amazon Bedrockの解析ジョブをAsyncで開始.
+        結果は /ocr/jobs/{job_id} で取得.
+      operationId: createOcrJob
+      tags:
+        - OCR
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 画像ファイル (png/jpeg/jpg)
+                filename:
+                  type: string
+                  description: ファイル名
+                  example: hoge.png
+      responses:
+        '202':
+          description: 受付成功 (解析は非同期で実行)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcrJobCreated'
+        '404':
+          description: リクエストエラー (ファイルがない, 拡張子不正 など)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: ファイルサイズが大きい
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ocr/jobs/{job_id}:
+    get:
+      summary: Ocr解析ジョブ取得
+      description: job_id を指定して解析状況と、完了していれば全文テキスト結果を取得する
+      operationId: getOcrJob
+      tags: 
+        - OCR
+      parameters:
+        - $ref: '#/components/parameters/OcrJobId'
+      responses:
+        '200':
+          description: 成功（状態と、完了していれば text を返す）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcrJobStatus'
+        '404':
+          description: ジョブが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   parameters:
     MemoId:
@@ -150,6 +219,15 @@ components:
       description: メモのID
       schema:
         type: string
+    
+    OcrJobId:
+      name: job_id
+      in: path
+      required: true
+      description: Ocr解析の識別JobID
+      schema:
+        type: string
+        example: "job_01XXX"
 
   schemas:
     HelloResponse:
@@ -206,6 +284,48 @@ components:
       required:
         - content
 
+    OcrJobCreated:
+      type: object
+      properties:
+        job_id:
+          type: string
+          description: 作成されたジョブのID
+          example: "job_01XXX"
+        status:
+          type: string
+          description: 作成直後の状態
+          enum: [QUEUED]
+          example: QUEUED
+      required: [job_id, status]
+
+    OcrJobStatus:
+      type: object
+      properties:
+        job_id:
+          type: string
+          example: "job_01XXX"
+        status:
+          type: string
+          enum: [QUEUED, RUNNING, SUCCEEDED, FAILED]
+          example: SUCCEEDED
+        text:
+          type: string
+          nullable: true
+          description: |
+            成功時, 全文textが入る.
+            それ以外はnull.
+          example: "TOTAL 1,234 JPY\nThank you..."
+        error:
+          type: string
+          nullable: true
+          description: 失敗時, エラー内容が入る
+          example: "Unsupported Document Exception"
+      required: 
+        - job_id
+        - status
+        - text
+        - error
+
     ErrorResponse:
       type: object
       properties:
@@ -221,3 +341,5 @@ tags:
     description: ヘルスチェック用エンドポイント
   - name: Memos
     description: メモ管理用エンドポイント
+  - name: OCR
+    description: 画像から文字を抽出するAPI
