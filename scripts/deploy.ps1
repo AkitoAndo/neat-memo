@@ -1,11 +1,15 @@
 # CDKデプロイスクリプト
-# Usage: .\scripts\deploy.ps1
+# Usage: .\scripts\deploy.ps1 [-Stage <stage_name>]
+
+param (
+    [string]$Stage = "dev"
+)
 
 $ErrorActionPreference = "Stop"
 $ProjectDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $InfraDir = Join-Path $ProjectDir "infra"
 
-Write-Host "Deploying NeatMemo CDK Stack..." -ForegroundColor Cyan
+Write-Host "Deploying NeatMemo CDK Stack (Stage: $Stage)..." -ForegroundColor Cyan
 
 # infraディレクトリに移動
 Push-Location $InfraDir
@@ -21,7 +25,7 @@ try {
 
     # デプロイ
     Write-Host "`n[3/3] Deploying stack..." -ForegroundColor Yellow
-    cdk deploy --require-approval never
+    cdk deploy --require-approval never -c stage=$Stage
 
     Write-Host "`nDeployment completed successfully!" -ForegroundColor Green
 }

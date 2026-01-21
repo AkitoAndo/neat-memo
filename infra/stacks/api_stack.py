@@ -13,7 +13,7 @@ from constructs import Construct
 
 
 class ApiStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, stage_name: str = "dev", **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Lambda: Memo Handler
@@ -38,7 +38,7 @@ class ApiStack(Stack):
         api = apigw.RestApi(
             self,
             "MemoApi",
-            rest_api_name="NeatMemo API",
+            rest_api_name=f"NeatMemo API ({stage_name})",
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=apigw.Cors.ALL_ORIGINS,
                 allow_methods=apigw.Cors.ALL_METHODS,
