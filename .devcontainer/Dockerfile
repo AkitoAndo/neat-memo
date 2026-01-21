@@ -28,6 +28,9 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
     && ./aws/install \
     && rm -rf awscliv2.zip aws
 
+# Install MySQL
+RUN apt-get update && apt-get install -y mysql-client
+
 # Enable git completion for bash
 RUN echo '\n# Enable git completion\nif [ -f /usr/share/bash-completion/completions/git ]; then\n    . /usr/share/bash-completion/completions/git\nfi' >> /etc/bash.bashrc
 

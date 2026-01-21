@@ -1,8 +1,9 @@
 {
   "name": "neat-memo",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
+  "dockerComposeFile": "compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace/neat-memo",
+
   "customizations": {
     "vscode": {
       "extensions": [
@@ -26,6 +27,6 @@
     }
   },
   "postCreateCommand": "pip3 install --break-system-packages aws-sam-cli aws-cdk-lib && npm install -g aws-cdk @anthropic-ai/claude-code && echo 'Dev container ready!'",
-  "forwardPorts": [3000, 5173, 8000],
+  "forwardPorts": [3000, 5173, 8000, 3306],
   "remoteUser": "vscode"
 }
