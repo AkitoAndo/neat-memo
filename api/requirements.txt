@@ -1,3 +1,4 @@
 # Lambda dependencies
 # Add your dependencies here
 pymysql==1.1.1
+ruff>=0.1.0
