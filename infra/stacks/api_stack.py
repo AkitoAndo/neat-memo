@@ -2,11 +2,23 @@ from aws_cdk import (
     CfnOutput,
     RemovalPolicy,
     Stack,
-    aws_cloudfront as cloudfront,
-    aws_cloudfront_origins as origins,
-    aws_lambda as lambda_,
+)
+from aws_cdk import (
     aws_apigateway as apigw,
+)
+from aws_cdk import (
+    aws_cloudfront as cloudfront,
+)
+from aws_cdk import (
+    aws_cloudfront_origins as origins,
+)
+from aws_cdk import (
+    aws_lambda as lambda_,
+)
+from aws_cdk import (
     aws_s3 as s3,
+)
+from aws_cdk import (
     aws_s3_deployment as s3deploy,
 )
 from constructs import Construct
