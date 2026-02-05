@@ -1,8 +1,8 @@
 from aws_cdk import (
     CfnOutput,
+    Duration,
     RemovalPolicy,
     Stack,
-    Duration,
 )
 from aws_cdk import (
     aws_apigateway as apigw,
@@ -20,19 +20,19 @@ from aws_cdk import (
     aws_ec2 as ec2,
 )
 from aws_cdk import (
-    aws_rds as rds,
-)
-from aws_cdk import (
-    aws_secretsmanager as secretsmanager,
-)
-from aws_cdk import (
     aws_lambda as lambda_,
+)
+from aws_cdk import (
+    aws_rds as rds,
 )
 from aws_cdk import (
     aws_s3 as s3,
 )
 from aws_cdk import (
     aws_s3_deployment as s3deploy,
+)
+from aws_cdk import (
+    aws_secretsmanager as secretsmanager,
 )
 from constructs import Construct
 
@@ -134,7 +134,7 @@ class ApiStack(Stack):
         )
 
         # Aurora Cluster
-        cluster = rds.DatabaseCluster(
+        rds.DatabaseCluster(
             self,
             "NeatMemoDb",
             engine=rds.DatabaseClusterEngine.aurora_mysql(

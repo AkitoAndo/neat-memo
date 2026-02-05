@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+
 import aws_cdk as cdk
 from stacks.api_stack import ApiStack
 from stacks.iam_user_stack import IamUserStack
@@ -12,7 +13,7 @@ stack_name = f"NeatMemoApiStack-{stage}"
 # Use the account/region where the CLI is configured
 env = cdk.Environment(
     account=os.getenv("CDK_DEFAULT_ACCOUNT"),
-    region=os.getenv("CDK_DEFAULT_REGION")
+    region=os.getenv("CDK_DEFAULT_REGION") or "ap-northeast-1"
 )
 
 ApiStack(app, stack_name, stage_name=stage, env=env)

@@ -524,10 +524,12 @@ class CanvasManager {
 
   setupInteractions() {
     this.container.addEventListener("dblclick", (e) => {
+      // 既存のアイテム上でのダブルクリックは無視
       if (e.target !== this.container) return;
 
-      const x = e.clientX;
-      const y = e.clientY;
+      const rect = this.container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
 
       const newItem = new TextItem({
         x: x,
@@ -537,10 +539,13 @@ class CanvasManager {
 
       this.addItem(newItem);
 
-      const el = this.container.querySelector(
-        `[data-id="${newItem.id}"] textarea`
-      );
-      if (el) el.focus();
+      // DOMが更新されるのを待ってからフォーカス
+      setTimeout(() => {
+        const el = this.container.querySelector(
+          `[data-id="${newItem.id}"] textarea`
+        );
+        if (el) el.focus();
+      }, 0);
     });
   }
 }
