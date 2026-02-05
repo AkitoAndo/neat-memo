@@ -8,10 +8,48 @@
 </head>
 <body>
 
+    <!-- 画面0: 認証 -->
+    <div id="view-auth" class="view">
+        <div class="auth-container">
+            <h1>NeatMemo</h1>
+            
+            <!-- サインイン -->
+            <div id="auth-signin">
+                <h2>ログイン</h2>
+                <input type="email" id="signin-email" placeholder="メールアドレス">
+                <input type="password" id="signin-password" placeholder="パスワード">
+                <button id="btn-signin" class="primary-btn full-width">ログイン</button>
+                <p class="auth-link">アカウントをお持ちでない方は <a href="#" id="link-signup">新規登録</a></p>
+            </div>
+
+            <!-- サインアップ -->
+            <div id="auth-signup" style="display: none;">
+                <h2>新規登録</h2>
+                <input type="email" id="signup-email" placeholder="メールアドレス">
+                <input type="password" id="signup-password" placeholder="パスワード">
+                <button id="btn-signup" class="primary-btn full-width">登録</button>
+                <p class="auth-link">既にアカウントをお持ちの方は <a href="#" id="link-signin">ログイン</a></p>
+            </div>
+
+            <!-- 確認コード -->
+            <div id="auth-confirm" style="display: none;">
+                <h2>確認コード入力</h2>
+                <p>メールアドレスに送信されたコードを入力してください。</p>
+                <input type="text" id="confirm-email-hidden" hidden>
+                <input type="text" id="confirm-code" placeholder="確認コード">
+                <button id="btn-confirm" class="primary-btn full-width">確認</button>
+                <button id="btn-confirm-back" class="secondary-btn full-width" style="margin-top: 10px;">戻る</button>
+            </div>
+            
+            <p id="auth-message" style="color: red; margin-top: 10px;"></p>
+        </div>
+    </div>
+
     <!-- 画面1: プロジェクト一覧 -->
-    <div id="view-project-list" class="view">
+    <div id="view-project-list" class="view" style="display: none;">
         <header id="project-header">
             <h1>NeatMemo</h1>
+            <button id="btn-logout" class="secondary-btn">ログアウト</button>
         </header>
         <div id="project-actions">
             <button id="btn-new-project" class="primary-btn">+ 新規プロジェクト</button>
@@ -75,8 +113,8 @@
         </div>
     </div>
 
-    <!-- 設定読み込み (ローカル実行時は404になりますが無視して動作するようにJSで作ります) -->
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+    <!-- 設定読み込み -->
+    <script src="/config.js"></script>
+    <script type="module" src="./app.js"></script>
 </body>
 </html>
