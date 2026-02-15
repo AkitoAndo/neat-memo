@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Frontend checks (ui/)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ./ui
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ./ui
+        run: npm run lint
+
+      - name: Run Prettier check
+        working-directory: ./ui
+        run: npx prettier --check .
+
+      - name: Build frontend
+        working-directory: ./ui
+        run: npm run build
+
+      # Backend checks (api/)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: api/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: ./api
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Ruff
+        working-directory: ./api
+        run: ruff check .
+
+      # Infrastructure checks (infra/)
+      - name: Setup Python for CDK
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install CDK dependencies
+        working-directory: ./infra
+        run: |
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: CDK Synth check
+        working-directory: ./infra
+        run: |
+          npm install -g aws-cdk
+          cdk synth

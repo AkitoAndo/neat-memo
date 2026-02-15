@@ -1,0 +1,92 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Frontend checks and build (ui/)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ./ui
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ./ui
+        run: npm run lint
+
+      - name: Run Prettier check
+        working-directory: ./ui
+        run: npx prettier --check .
+
+      - name: Build frontend
+        working-directory: ./ui
+        run: npm run build
+
+      # Backend checks (api/)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: api/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: ./api
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Ruff
+        working-directory: ./api
+        run: ruff check .
+
+      # Deploy with CDK (infra/)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Python for CDK
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install CDK dependencies
+        working-directory: ./infra
+        run: |
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: CDK Deploy
+        working-directory: ./infra
+        run: cdk deploy --all --require-approval never --context environment=production
+
+      # TODO: Add frontend deployment when hosting destination is decided
+      # Example for S3 + CloudFront:
+      # - name: Deploy frontend to S3
+      #   working-directory: ./ui
+      #   run: aws s3 sync dist/ s3://your-prod-bucket --delete
+      #
+      # - name: Invalidate CloudFront cache
+      #   run: aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
