@@ -31,3 +31,5 @@
 | Python | 3.12 | Lambda バックエンド |
 | AWS CLI | latest | AWS リソース管理 |
 | SAM CLI | latest | Lambda ローカル開発 |
+
+## CI/CDテスト
