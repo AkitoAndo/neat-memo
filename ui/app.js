@@ -64,7 +64,7 @@ const Storage = {
                 if (data.id && data.name) return data;
                 
                 return { id: memo.memoId, name: "無題のプロジェクト", updatedAt: new Date().toISOString() };
-            } catch (e) {
+            } catch {
                 return { id: memo.memoId, name: "破損したデータ", updatedAt: new Date().toISOString() };
             }
         });
@@ -201,6 +201,7 @@ class TextItem extends CanvasItem {
     el.style.left = `${this.x}px`;
     el.style.top = `${this.y}px`;
     el.style.width = `${this.width}px`;
+    el.style.zIndex = this.zIndex;
     // 高さも復元する場合
     if (this.height) el.style.height = `${this.height}px`;
 
@@ -401,18 +402,108 @@ class ProjectCard {
 
 class CanvasManager {
   constructor(containerId, appState) {
-    this.container = document.getElementById(containerId);
+    this.viewport = document.getElementById(containerId);
+    this.container = document.getElementById("canvas-content");
     this.items = new Map();
     this.projectId = null;
     this.appState = appState;
     this.autoSaveTimer = null;
 
+    // カメラ（表示位置・ズーム）の状態
+    this.camera = {
+        x: 0,
+        y: 0,
+        scale: 1
+    };
+
+    this.contextMenu = document.getElementById("context-menu");
+    this.contextTargetItem = null;
+
     this.setupInteractions();
+    this.setupContextMenu();
+    this.updateTransform();
+  }
+
+  updateTransform() {
+    this.container.style.transform = `translate(${this.camera.x}px, ${this.camera.y}px) scale(${this.camera.scale})`;
+  }
+
+  setupContextMenu() {
+    // メニュー外クリックで閉じる
+    window.addEventListener("mousedown", (e) => {
+      if (!this.contextMenu.contains(e.target)) {
+        this.contextMenu.classList.remove("active");
+      }
+    });
+
+    // 各メニュー項目のイベント
+    document.getElementById("menu-front").addEventListener("click", () => {
+      if (this.contextTargetItem) {
+        this.bringToFront(this.contextTargetItem);
+        this.contextMenu.classList.remove("active");
+      }
+    });
+
+    document.getElementById("menu-back").addEventListener("click", () => {
+      if (this.contextTargetItem) {
+        this.sendToBack(this.contextTargetItem);
+        this.contextMenu.classList.remove("active");
+      }
+    });
+
+    document.getElementById("menu-delete").addEventListener("click", () => {
+      if (this.contextTargetItem) {
+        this.removeItem(this.contextTargetItem.id);
+        this.contextMenu.classList.remove("active");
+      }
+    });
+  }
+
+  bringToFront(item) {
+    let maxZ = 0;
+    this.items.forEach(it => {
+      maxZ = Math.max(maxZ, it.zIndex);
+    });
+    item.zIndex = maxZ + 1;
+    const el = this.container.querySelector(`[data-id="${item.id}"]`);
+    if (el) el.style.zIndex = item.zIndex;
+    this.triggerAutoSave();
+  }
+
+  sendToBack(item) {
+    let minZ = 1;
+    this.items.forEach(it => {
+      minZ = Math.min(minZ, it.zIndex);
+    });
+    item.zIndex = minZ - 1;
+    const el = this.container.querySelector(`[data-id="${item.id}"]`);
+    if (el) el.style.zIndex = item.zIndex;
+    this.triggerAutoSave();
+  }
+
+  removeItem(id) {
+    const item = this.items.get(id);
+    if (item) {
+      this.items.delete(id);
+      const el = this.container.querySelector(`[data-id="${id}"]`);
+      if (el) el.remove();
+      this.triggerAutoSave();
+    }
+  }
+
+  // 画面座標をキャンバス内の座標に変換
+  screenToCanvas(clientX, clientY) {
+    const rect = this.viewport.getBoundingClientRect();
+    const x = (clientX - rect.left - this.camera.x) / this.camera.scale;
+    const y = (clientY - rect.top - this.camera.y) / this.camera.scale;
+    return { x, y };
   }
 
   async loadProject(projectId) {
     this.projectId = projectId;
     this.container.innerHTML = "";
+    this.camera = { x: 0, y: 0, scale: 1 };
+    this.updateTransform();
     
     const data = await Storage.loadFullData(projectId);
     
@@ -474,8 +565,8 @@ class CanvasManager {
         const startTop = el.offsetTop;
         
         const onMouseMove = (ev) => {
-            const dx = ev.clientX - startX;
-            const dy = ev.clientY - startY;
+            const dx = (ev.clientX - startX) / this.camera.scale;
+            const dy = (ev.clientY - startY) / this.camera.scale;
             item.x = startLeft + dx;
             item.y = startTop + dy;
             el.style.left = `${item.x}px`;
@@ -490,6 +581,15 @@ class CanvasManager {
         
         document.addEventListener("mousemove", onMouseMove);
         document.addEventListener("mouseup", onMouseUp);
+    });
+
+    // 右クリックでコンテキストメニューを表示
+    el.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        this.contextTargetItem = item;
+        this.contextMenu.style.left = `${e.clientX}px`;
+        this.contextMenu.style.top = `${e.clientY}px`;
+        this.contextMenu.classList.add("active");
     });
 
     this.container.appendChild(el);
@@ -523,13 +623,58 @@ class CanvasManager {
   }
 
   setupInteractions() {
+    // ズーム操作 (マウスホイール)
+    this.viewport.addEventListener("wheel", (e) => {
+        if (this.appState.currentProjectId === null) return;
+        e.preventDefault();
+        const delta = -e.deltaY;
+        const factor = Math.pow(1.1, delta / 100);
+        
+        const newScale = Math.min(Math.max(this.camera.scale * factor, 0.1), 5);
+        
+        const rect = this.viewport.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        this.camera.x = mouseX - (mouseX - this.camera.x) * (newScale / this.camera.scale);
+        this.camera.y = mouseY - (mouseY - this.camera.y) * (newScale / this.camera.scale);
+        this.camera.scale = newScale;
+        
+        this.updateTransform();
+    }, { passive: false });
+
+    // パン操作 (背景ドラッグ)
+    this.container.addEventListener("mousedown", (e) => {
+        if (e.target !== this.container) return;
+        
+        e.preventDefault();
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startCamX = this.camera.x;
+        const startCamY = this.camera.y;
+        
+        const onMouseMove = (ev) => {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            this.camera.x = startCamX + dx;
+            this.camera.y = startCamY + dy;
+            this.updateTransform();
+        };
+        
+        const onMouseUp = () => {
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("mouseup", onMouseUp);
+        };
+        
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+    });
+
     this.container.addEventListener("dblclick", (e) => {
       // 既存のアイテム上でのダブルクリックは無視
       if (e.target !== this.container) return;
 
-      const rect = this.container.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const { x, y } = this.screenToCanvas(e.clientX, e.clientY);
 
       const newItem = new TextItem({
         x: x,
@@ -691,7 +836,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
           throw new Error("No user");
       }
-  } catch (e) {
+  } catch {
       viewManager.switchTo("auth");
   }
 
@@ -811,7 +956,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   function setupCanvasEvents() {
     let dropPosition = { x: 100, y: 150 };
 
-    async function handleImageUpload(file, x, y) {
+    async function handleImageUpload(file, screenX, screenY) {
+      const { x, y } = canvasManager.screenToCanvas(screenX, screenY);
       loadingOverlay.classList.add("active");
       try {
         const result = await OcrService.processImage(file);
