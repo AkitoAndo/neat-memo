@@ -1,11 +1,11 @@
 import { Amplify } from 'aws-amplify';
-import { 
-    signUp, 
-    confirmSignUp, 
-    signIn, 
-    signOut, 
-    getCurrentUser, 
-    fetchAuthSession 
+import {
+    signUp,
+    confirmSignUp,
+    signIn,
+    signOut,
+    getCurrentUser,
+    fetchAuthSession
 } from 'aws-amplify/auth';
 
 const env = window.ENV || {};
