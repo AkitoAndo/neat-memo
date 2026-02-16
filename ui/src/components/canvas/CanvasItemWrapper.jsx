@@ -15,6 +15,7 @@ export default function CanvasItemWrapper({ item, onDelete, children }) {
         top: `${item.y}px`,
         width: `${item.width}px`,
         height: `${item.height}px`,
+        zIndex: item.zIndex,
       }}
     >
       <div className="item-header">

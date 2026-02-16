@@ -1,7 +1,13 @@
 import { useRef, useEffect } from 'react';
 
-export function useDrag(containerRef, onDragEnd) {
+export function useDrag(containerRef, onDragEnd, scale = 1) {
   const dragStateRef = useRef(null);
+  const scaleRef = useRef(scale);
+
+  // Keep scale ref updated
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -32,8 +38,8 @@ export function useDrag(containerRef, onDragEnd) {
     function handleMouseMove(e) {
       if (!dragStateRef.current) return;
       const { startX, startY, origX, origY, itemEl } = dragStateRef.current;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
+      const dx = (e.clientX - startX) / scaleRef.current;
+      const dy = (e.clientY - startY) / scaleRef.current;
       itemEl.style.left = `${origX + dx}px`;
       itemEl.style.top = `${origY + dy}px`;
     }

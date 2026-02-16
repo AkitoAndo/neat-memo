@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCanvas } from '../../hooks/useCanvas.js';
+import { useCamera } from '../../hooks/useCamera.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useContextMenu } from '../../hooks/useContextMenu.js';
 import { useToast } from '../../hooks/useToast.js';
@@ -20,7 +21,8 @@ export default function CanvasView() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const { items, projectMeta, loadProject, addItem, removeItem, updateItem, save, itemsRef } = useCanvas();
+  const { items, projectMeta, loadProject, addItem, removeItem, updateItem, bringToFront, sendToBack, save, itemsRef } = useCanvas();
+  const { camera, screenToCanvas, updateCamera, resetCamera } = useCamera();
   const { contextMenu, show: showContextMenu, hide: hideContextMenu } = useContextMenu();
 
   const [dropActive, setDropActive] = useState(false);
@@ -38,9 +40,12 @@ export default function CanvasView() {
 
   useEffect(() => {
     if (projectId) {
-      loadProject(projectId).then(() => setLoaded(true));
+      loadProject(projectId).then(() => {
+        setLoaded(true);
+        resetCamera();
+      });
     }
-  }, [projectId, loadProject]);
+  }, [projectId, loadProject, resetCamera]);
 
   const handleBack = useCallback(() => {
     save(projectId);
@@ -81,11 +86,17 @@ export default function CanvasView() {
     }, 0);
   }, [addItem, triggerAutoSave]);
 
-  const handleContextMenuAction = useCallback((action, x, y) => {
+  const handleContextMenuAction = useCallback((action, x, y, targetItemId) => {
     hideContextMenu();
+    
+    // Convert screen coordinates to canvas coordinates if it's an "add" action
+    const canvasPos = (action.startsWith('add-')) 
+      ? screenToCanvas(x, y, document.getElementById('canvas-area'))
+      : { x, y };
+
     switch (action) {
       case 'add-text': {
-        const newItem = new TextItem({ x, y, width: 200, height: 100, content: '' });
+        const newItem = new TextItem({ x: canvasPos.x, y: canvasPos.y, width: 200, height: 100, content: '' });
         addItem(newItem);
         triggerAutoSave();
         setTimeout(() => {
@@ -95,21 +106,32 @@ export default function CanvasView() {
         break;
       }
       case 'add-ocr':
-        dropPositionRef.current = { x, y };
+        dropPositionRef.current = { x: canvasPos.x, y: canvasPos.y };
         ocrInputRef.current?.click();
         break;
       case 'add-image':
-        dropPositionRef.current = { x, y };
+        dropPositionRef.current = { x: canvasPos.x, y: canvasPos.y };
         imageInputRef.current?.click();
         break;
       case 'add-pen': {
-        const penItem = new PenItem({ x, y, width: 300, height: 200 });
+        const penItem = new PenItem({ x: canvasPos.x, y: canvasPos.y, width: 300, height: 200 });
         addItem(penItem);
         triggerAutoSave();
         break;
       }
+      case 'bring-to-front':
+        bringToFront(targetItemId);
+        triggerAutoSave();
+        break;
+      case 'send-to-back':
+        sendToBack(targetItemId);
+        triggerAutoSave();
+        break;
+      case 'delete':
+        handleDeleteItem(targetItemId);
+        break;
     }
-  }, [addItem, triggerAutoSave, hideContextMenu]);
+  }, [addItem, triggerAutoSave, hideContextMenu, screenToCanvas, bringToFront, sendToBack, handleDeleteItem]);
 
   // OCR handling
   async function handleOcrUpload(file, x, y) {
@@ -154,21 +176,28 @@ export default function CanvasView() {
 
   // Toolbar actions
   function handleOcrButton() {
+    const center = screenToCanvas(window.innerWidth / 2, window.innerHeight / 2, document.getElementById('canvas-area'));
     dropPositionRef.current = {
-      x: window.innerWidth / 2 - 150,
-      y: window.innerHeight / 2 - 75,
+      x: center.x - 150,
+      y: center.y - 75,
     };
     ocrInputRef.current?.click();
   }
 
   function handleImageButton() {
+    const center = screenToCanvas(window.innerWidth / 2, window.innerHeight / 2, document.getElementById('canvas-area'));
+    dropPositionRef.current = {
+      x: center.x - 150,
+      y: center.y - 100,
+    };
     imageInputRef.current?.click();
   }
 
   function handlePenButton() {
+    const center = screenToCanvas(window.innerWidth / 2, window.innerHeight / 2, document.getElementById('canvas-area'));
     const penItem = new PenItem({
-      x: window.innerWidth / 2 - 150,
-      y: window.innerHeight / 2 - 100,
+      x: center.x - 150,
+      y: center.y - 100,
       width: 300,
       height: 200,
     });
@@ -216,7 +245,8 @@ export default function CanvasView() {
       setDropActive(false);
       const file = e.dataTransfer.files[0];
       if (file && file.type.startsWith('image/')) {
-        handleImageUpload(file, e.clientX, e.clientY);
+        const canvasPos = screenToCanvas(e.clientX, e.clientY, document.getElementById('canvas-area'));
+        handleImageUpload(file, canvasPos.x, canvasPos.y);
       }
     }
     document.addEventListener('dragenter', onDragEnter);
@@ -229,7 +259,7 @@ export default function CanvasView() {
       document.removeEventListener('dragover', onDragOver);
       document.removeEventListener('drop', onDrop);
     };
-  }, []);
+  }, [screenToCanvas]);
 
   if (!loaded) return null;
 
@@ -269,12 +299,16 @@ export default function CanvasView() {
         onDoubleClick={handleDoubleClick}
         onContextMenu={showContextMenu}
         onContentChange={handleContentChange}
+        camera={camera}
+        onUpdateCamera={updateCamera}
+        screenToCanvas={screenToCanvas}
       />
 
       <ContextMenu
         visible={contextMenu.visible}
         x={contextMenu.x}
         y={contextMenu.y}
+        targetItemId={contextMenu.targetItemId}
         onAction={handleContextMenuAction}
       />
     </div>

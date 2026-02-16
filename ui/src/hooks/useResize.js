@@ -1,7 +1,13 @@
 import { useRef, useEffect } from 'react';
 
-export function useResize(containerRef, onResizeEnd) {
+export function useResize(containerRef, onResizeEnd, scale = 1) {
   const resizeStateRef = useRef(null);
+  const scaleRef = useRef(scale);
+
+  // Keep scale ref updated
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -29,8 +35,8 @@ export function useResize(containerRef, onResizeEnd) {
     function handleMouseMove(e) {
       if (!resizeStateRef.current) return;
       const { startX, startY, origWidth, origHeight, itemEl } = resizeStateRef.current;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
+      const dx = (e.clientX - startX) / scaleRef.current;
+      const dy = (e.clientY - startY) / scaleRef.current;
       const newWidth = Math.max(100, origWidth + dx);
       const newHeight = Math.max(60, origHeight + dy);
       itemEl.style.width = `${newWidth}px`;

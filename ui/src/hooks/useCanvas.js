@@ -72,6 +72,36 @@ export function useCanvas() {
     });
   }, []);
 
+  const bringToFront = useCallback((itemId) => {
+    setItems(prev => {
+      const item = prev.get(itemId);
+      if (!item) return prev;
+      let maxZ = 0;
+      prev.forEach(it => {
+        maxZ = Math.max(maxZ, it.zIndex || 0);
+      });
+      item.zIndex = maxZ + 1;
+      const next = new Map(prev);
+      next.set(itemId, item);
+      return next;
+    });
+  }, []);
+
+  const sendToBack = useCallback((itemId) => {
+    setItems(prev => {
+      const item = prev.get(itemId);
+      if (!item) return prev;
+      let minZ = 1;
+      prev.forEach(it => {
+        minZ = Math.min(minZ, it.zIndex || 0);
+      });
+      item.zIndex = minZ - 1;
+      const next = new Map(prev);
+      next.set(itemId, item);
+      return next;
+    });
+  }, []);
+
   const save = useCallback(async (projectId) => {
     const meta = projectMetaRef.current;
     const currentItems = itemsRef.current;
@@ -87,6 +117,8 @@ export function useCanvas() {
     addItem,
     removeItem,
     updateItem,
+    bringToFront,
+    sendToBack,
     save,
     itemsRef,
   };

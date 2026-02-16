@@ -1,14 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
 
 export function useContextMenu() {
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0 });
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, targetItemId: null });
 
-  const show = useCallback((x, y) => {
-    setContextMenu({ visible: true, x, y });
+  const show = useCallback((x, y, targetItemId = null) => {
+    setContextMenu({ visible: true, x, y, targetItemId });
   }, []);
 
   const hide = useCallback(() => {
-    setContextMenu(prev => prev.visible ? { visible: false, x: 0, y: 0 } : prev);
+    setContextMenu(prev => prev.visible ? { visible: false, x: 0, y: 0, targetItemId: null } : prev);
   }, []);
 
   useEffect(() => {
