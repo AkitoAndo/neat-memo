@@ -70,13 +70,14 @@ body {
 .canvas-item {
     position: absolute;
     min-width: 100px;
-    min-height: 50px;
+    min-height: 60px;
     background: white;
     border-radius: 8px;
     box-shadow: var(--shadow);
-    padding: 10px;
     border: 1px solid transparent;
     transition: box-shadow 0.2s, border-color 0.2s;
+    display: flex;
+    flex-direction: column;
 }
 
 .canvas-item:hover {
@@ -88,18 +89,81 @@ body {
     z-index: 10;
 }
 
+.canvas-item.dragging,
+.canvas-item.resizing {
+    opacity: 0.9;
+    z-index: 100;
+}
+
+/* アイテムヘッダー（ドラッグハンドル） */
+.item-header {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 4px 6px;
+    background: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+    cursor: move;
+    min-height: 24px;
+    border-bottom: 1px solid #eee;
+}
+
+.item-header::before {
+    content: "⋮⋮";
+    font-size: 10px;
+    color: #bbb;
+    margin-right: auto;
+    letter-spacing: 2px;
+}
+
+/* 削除ボタン */
+.item-delete-btn {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.item-delete-btn:hover {
+    color: #e74c3c;
+    background: #fee;
+}
+
+/* リサイズハンドル */
+.item-resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 50%, #ccc 50%);
+    border-radius: 0 0 8px 0;
+}
+
+.item-resize-handle:hover {
+    background: linear-gradient(135deg, transparent 50%, var(--primary-color) 50%);
+}
+
 /* テキストボックス専用スタイル */
 .text-content {
+    flex: 1;
     width: 100%;
-    height: 100%;
     outline: none;
     border: none;
-    resize: none; /* 一旦リサイズは無効化 */
+    resize: none;
     background: transparent;
     font-family: inherit;
     font-size: 1rem;
     color: var(--text-color);
-    overflow: hidden;
+    overflow: auto;
+    padding: 10px;
+    box-sizing: border-box;
 }
 
 /* ドラッグ&ドロップオーバーレイ */
@@ -336,6 +400,7 @@ body {
    ======================================== */
 #view-canvas {
     position: relative;
+    height: 100vh;
 }
 
 /* ナビゲーションバー */
@@ -466,4 +531,231 @@ body {
 
 .modal-btn.primary:hover {
     background: #5a6fd6;
+}
+
+/* ========================================
+   画像アイテムスタイル
+   ======================================== */
+.image-item {
+    background: white;
+}
+
+.image-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    padding: 4px;
+}
+
+.image-container img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+/* ========================================
+   ペン描画アイテムスタイル
+   ======================================== */
+.pen-item {
+    background: white;
+}
+
+.pen-item .pen-canvas {
+    flex: 1;
+    display: block;
+    cursor: crosshair;
+    background: #fafafa;
+    border-radius: 0 0 4px 4px;
+}
+
+.pen-item.pen-mode {
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+}
+
+.pen-item.pen-mode .pen-canvas {
+    background: #fff;
+}
+
+/* ========================================
+   コンテキストメニュー（右クリックメニュー）
+   ======================================== */
+.context-menu {
+    position: fixed;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 8px 0;
+    min-width: 200px;
+    z-index: 4000;
+    display: none;
+}
+
+.context-menu.active {
+    display: block;
+}
+
+.context-menu-item {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.context-menu-item:hover {
+    background-color: #f0f2f5;
+    color: var(--primary-color);
+}
+
+.context-menu-item.disabled {
+    color: #bbb;
+    cursor: not-allowed;
+}
+
+.context-menu-item.disabled:hover {
+    background-color: transparent;
+    color: #bbb;
+}
+
+/* ========================================
+   トースト通知
+   ======================================== */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 6000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 400px;
+}
+
+.toast {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: toast-slide-in 0.3s ease-out;
+    border-left: 4px solid #667eea;
+}
+
+.toast.error {
+    border-left-color: #e74c3c;
+}
+
+.toast.success {
+    border-left-color: #27ae60;
+}
+
+@keyframes toast-slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes toast-slide-out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+.toast.removing {
+    animation: toast-slide-out 0.3s ease-in forwards;
+}
+
+.toast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.toast-title {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 0.95rem;
+}
+
+.toast.error .toast-title {
+    color: #c0392b;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.toast-close:hover {
+    color: #666;
+}
+
+.toast-message {
+    font-size: 0.85rem;
+    color: #666;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.toast-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.toast-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.toast-btn.primary {
+    background: var(--primary-color);
+    border: none;
+    color: white;
+}
+
+.toast-btn.primary:hover {
+    background: #5a6fd6;
+}
+
+.toast-btn.secondary {
+    background: white;
+    border: 1px solid #ddd;
+    color: #666;
+}
+
+.toast-btn.secondary:hover {
+    background: #f5f5f5;
+    border-color: #ccc;
 }

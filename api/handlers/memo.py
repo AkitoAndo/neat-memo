@@ -1,8 +1,10 @@
+"""Memo API handler using SQLAlchemy ORM."""
+
 import json
-import os
 import uuid
 
-import pymysql
+from db import get_session
+from models import Memo
 
 
 def handler(event, context):
@@ -38,13 +40,19 @@ def handler(event, context):
 # Read endpoints
 # --------------
 def _list_memos():
-    # TODO: Implement list memos
-    return _response(200, {"memos": []})
+    """GET /memos - List all memos."""
+    with get_session() as session:
+        memos = session.query(Memo).order_by(Memo.created_at.desc()).all()
+        return _response(200, {"memos": [m.to_dict() for m in memos]})
 
 
 def _get_memo(memo_id: str):
-    # TODO: Implement get memo
-    return _response(200, {"memo_id": memo_id, "content": ""})
+    """GET /memos/{memo_id} - Get a specific memo."""
+    with get_session() as session:
+        memo = session.get(Memo, memo_id)
+        if not memo:
+            return _response(404, {"error": "Memo not found"})
+        return _response(200, memo.to_dict())
 
 
 # ---------------------
@@ -62,17 +70,16 @@ def _create_memo(event):
     content = (body.get("content") or "").strip()
     if not content:
         return _response(400, {"error": "content is required"})
-    
+
     memo_id = str(uuid.uuid4())
 
-    with _db_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO memos (id, content) VALUES (%s, %s)",
-                (memo_id, content),
-            )
+    with get_session() as session:
+        memo = Memo(id=memo_id, content=content)
+        session.add(memo)
+        session.flush()  # Get generated values
+        result = memo.to_dict()
 
-    return _response(201, {"memo_id": "new-id", "content": body.get("content", "")})
+    return _response(201, result)
 
 
 def _update_memo(memo_id: str, event):
@@ -88,17 +95,17 @@ def _update_memo(memo_id: str, event):
     content = (body.get("content") or "").strip()
     if not content:
         return _response(400, {"error": "content is required"})
-    
-    with _db_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE memos SET content=%s WHERE id=%s",
-                (content, memo_id),
-            )
-            if cur.rowcount == 0:
-                return _response(404, {"error": "Memo not found"})
 
-    return _response(200, {"memo_id": memo_id, "content": body.get("content", "")})
+    with get_session() as session:
+        memo = session.get(Memo, memo_id)
+        if not memo:
+            return _response(404, {"error": "Memo not found"})
+
+        memo.content = content
+        session.flush()
+        result = memo.to_dict()
+
+    return _response(200, result)
 
 
 def _delete_memo(memo_id: str):
@@ -109,11 +116,12 @@ def _delete_memo(memo_id: str):
       204 (no body)
       404 if memo does not exist
     """
-    with _db_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM memos WHERE id=%s", (memo_id,))
-            if cur.rowcount == 0:
-                return _response(404, {"error": "Memo not found"})
+    with get_session() as session:
+        memo = session.get(Memo, memo_id)
+        if not memo:
+            return _response(404, {"error": "Memo not found"})
+
+        session.delete(memo)
 
     return _response(204, None)
 
@@ -121,23 +129,6 @@ def _delete_memo(memo_id: str):
 # -------
 # helpers
 # -------
-def _db_conn():
-    """
-    DB Connectionの作成
-
-    開発用DB デフォルト
-    host=db, port=3306, user=app, password=apppasss, database=neat_memo
-    """
-    return pymysql.connect(
-        host=os.getenv("DB_HOST", "db"),
-        port=int(os.getenv("DB_PORT", "3306")),
-        user=os.getenv("DB_USER", "app"),
-        password=os.getenv("DB_PASSWORD", "apppass"),
-        database=os.getenv("DB_NAME", "neat_memo"),
-        charset="utf8mb4",
-        autocommit=True,
-    )
-
 def _parse_json_body(event):
     raw = event.get("body") or ""
     if not raw:
@@ -146,6 +137,7 @@ def _parse_json_body(event):
         return json.loads(raw)
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON body")
+
 
 def _response(status_code: int, body):
     return {

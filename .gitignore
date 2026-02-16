@@ -55,3 +55,6 @@ htmlcov/
 
 # gemini CLI
 GEMINI.md
+
+# Claude Code
+.claude/

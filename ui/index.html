@@ -32,20 +32,21 @@
         <!-- ツールバー -->
         <div id="toolbar">
             <button class="tool-btn active" id="btn-text" title="ダブルクリックで配置">テキスト</button>
-            <!-- 将来の拡張用 -->
-            <button class="tool-btn" id="btn-image" title="画像からテキスト抽出">画像</button>
-            <button class="tool-btn" id="btn-pen" disabled title="実装予定">ペン</button>
+            <button class="tool-btn" id="btn-ocr" title="画像からテキスト抽出">OCR</button>
+            <button class="tool-btn" id="btn-image" title="画像をそのまま配置">画像</button>
+            <button class="tool-btn" id="btn-pen" title="ペンで描画">ペン</button>
             <button class="tool-btn" id="btn-save">保存</button>
         </div>
 
         <!-- 隠しファイル入力（画像アップロード用） -->
+        <input type="file" id="ocr-input" accept="image/png,image/jpeg,image/jpg" hidden>
         <input type="file" id="image-input" accept="image/png,image/jpeg,image/jpg" hidden>
 
         <!-- ドラッグ&ドロップオーバーレイ -->
         <div id="drop-overlay">
             <div class="drop-overlay-content">
                 <span class="drop-icon">📷</span>
-                <span>画像をドロップしてOCR</span>
+                <span>画像をドロップして配置</span>
             </div>
         </div>
 
@@ -61,6 +62,14 @@
         <div id="canvas-area">
             <!-- ここに動的に要素が追加されます -->
         </div>
+
+        <!-- 右クリックメニュー -->
+        <div id="context-menu" class="context-menu">
+            <button class="context-menu-item" data-action="add-text">テキストを追加</button>
+            <button class="context-menu-item" data-action="add-ocr">OCRで画像からテキスト抽出</button>
+            <button class="context-menu-item" data-action="add-image">画像を追加</button>
+            <button class="context-menu-item" data-action="add-pen">ペンで描画</button>
+        </div>
     </div>
 
     <!-- プロジェクト名入力モーダル -->
@@ -74,6 +83,10 @@
             </div>
         </div>
     </div>
+
+
+    <!-- トースト通知コンテナ -->
+    <div id="toast-container"></div>
 
     <!-- 設定読み込み (ローカル実行時は404になりますが無視して動作するようにJSで作ります) -->
     <script src="config.js"></script>

@@ -39,6 +39,138 @@ const Storage = {
 };
 
 /* ========================================
+   トースト通知システム
+   ======================================== */
+const Toast = {
+  container: null,
+
+  init() {
+    this.container = document.getElementById("toast-container");
+  },
+
+  show({ title, message, type = "info", duration = 5000, actions = [] }) {
+    if (!this.container) this.init();
+
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+
+    const hasActions = actions.length > 0;
+
+    toast.innerHTML = `
+      <div class="toast-header">
+        <span class="toast-title">${this.escapeHtml(title)}</span>
+        <button class="toast-close">&times;</button>
+      </div>
+      <div class="toast-message">${this.escapeHtml(message)}</div>
+      ${hasActions ? '<div class="toast-actions"></div>' : ""}
+    `;
+
+    // アクションボタンを追加
+    if (hasActions) {
+      const actionsContainer = toast.querySelector(".toast-actions");
+      actions.forEach((action) => {
+        const btn = document.createElement("button");
+        btn.className = `toast-btn ${action.primary ? "primary" : "secondary"}`;
+        btn.textContent = action.label;
+        btn.addEventListener("click", () => {
+          action.onClick();
+          if (action.closeOnClick !== false) {
+            this.remove(toast);
+          }
+        });
+        actionsContainer.appendChild(btn);
+      });
+    }
+
+    // 閉じるボタン
+    toast.querySelector(".toast-close").addEventListener("click", () => {
+      this.remove(toast);
+    });
+
+    this.container.appendChild(toast);
+
+    // 自動削除（アクションがない場合のみ）
+    if (duration > 0 && !hasActions) {
+      setTimeout(() => {
+        this.remove(toast);
+      }, duration);
+    }
+
+    return toast;
+  },
+
+  remove(toast) {
+    if (!toast || !toast.parentNode) return;
+    toast.classList.add("removing");
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
+  },
+
+  escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  },
+
+  // 成功トースト
+  success(title, message) {
+    return this.show({ title, message, type: "success", duration: 3000 });
+  },
+
+  // エラートースト（ダウンロード機能付き）
+  error(title, message, errorDetails = null) {
+    const actions = [];
+
+    if (errorDetails) {
+      actions.push({
+        label: "エラー詳細をダウンロード",
+        primary: false,
+        closeOnClick: false,
+        onClick: () => {
+          this.downloadErrorDetails(errorDetails);
+        },
+      });
+    }
+
+    actions.push({
+      label: "閉じる",
+      primary: true,
+      onClick: () => {},
+    });
+
+    return this.show({
+      title,
+      message,
+      type: "error",
+      duration: 0, // 手動で閉じる
+      actions,
+    });
+  },
+
+  // エラー詳細をダウンロード
+  downloadErrorDetails(errorDetails) {
+    const content = JSON.stringify(errorDetails, null, 2);
+    const blob = new Blob([content], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `error-details-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  // 情報トースト
+  info(title, message) {
+    return this.show({ title, message, type: "info", duration: 4000 });
+  },
+};
+
+/* ========================================
    データモデル
    ======================================== */
 
@@ -100,6 +232,63 @@ class CanvasItem {
 }
 
 /**
+ * 画像アイテム
+ */
+class ImageItem extends CanvasItem {
+  constructor(data) {
+    super({ ...data, type: "image" });
+    this.src = data.src || ""; // Base64 data URL
+  }
+
+  serialize() {
+    const base = super.serialize();
+    return { ...base, src: this.src };
+  }
+
+  render() {
+    const el = document.createElement("div");
+    el.className = "canvas-item image-item";
+    el.style.left = `${this.x}px`;
+    el.style.top = `${this.y}px`;
+    el.style.width = `${this.width}px`;
+    el.style.height = `${this.height}px`;
+
+    el.dataset.id = this.id;
+
+    // ドラッグハンドル（ヘッダー）
+    const header = document.createElement("div");
+    header.className = "item-header";
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "item-delete-btn";
+    deleteBtn.textContent = "×";
+    deleteBtn.title = "削除";
+
+    header.appendChild(deleteBtn);
+    el.appendChild(header);
+
+    // 画像表示
+    const imgContainer = document.createElement("div");
+    imgContainer.className = "image-container";
+
+    const img = document.createElement("img");
+    img.src = this.src;
+    img.alt = "画像";
+    img.draggable = false;
+
+    imgContainer.appendChild(img);
+    el.appendChild(imgContainer);
+
+    // リサイズハンドル
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className = "item-resize-handle";
+    el.appendChild(resizeHandle);
+
+    return el;
+  }
+}
+
+/**
  * テキストボックスアイテム
  */
 class TextItem extends CanvasItem {
@@ -118,9 +307,23 @@ class TextItem extends CanvasItem {
     el.style.left = `${this.x}px`;
     el.style.top = `${this.y}px`;
     el.style.width = `${this.width}px`;
+    el.style.height = `${this.height}px`;
 
     el.dataset.id = this.id;
 
+    // ドラッグハンドル（ヘッダー）
+    const header = document.createElement("div");
+    header.className = "item-header";
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "item-delete-btn";
+    deleteBtn.textContent = "×";
+    deleteBtn.title = "削除";
+
+    header.appendChild(deleteBtn);
+    el.appendChild(header);
+
+    // テキストエリア
     const textarea = document.createElement("textarea");
     textarea.className = "text-content";
     textarea.placeholder = "メモを入力...";
@@ -131,7 +334,104 @@ class TextItem extends CanvasItem {
     });
 
     el.appendChild(textarea);
+
+    // リサイズハンドル
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className = "item-resize-handle";
+    el.appendChild(resizeHandle);
+
     return el;
+  }
+}
+
+/**
+ * ペン描画アイテム
+ */
+class PenItem extends CanvasItem {
+  constructor(data) {
+    super({ ...data, type: "pen" });
+    this.paths = data.paths || []; // [{points: [{x, y}, ...], color, width}, ...]
+    this.color = data.color || "#333333";
+    this.strokeWidth = data.strokeWidth || 2;
+  }
+
+  serialize() {
+    const base = super.serialize();
+    return {
+      ...base,
+      paths: this.paths,
+      color: this.color,
+      strokeWidth: this.strokeWidth,
+    };
+  }
+
+  // パスをSVGのd属性に変換
+  pathToSvgD(points) {
+    if (points.length < 2) return "";
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      d += ` L ${points[i].x} ${points[i].y}`;
+    }
+    return d;
+  }
+
+  render() {
+    const el = document.createElement("div");
+    el.className = "canvas-item pen-item";
+    el.style.left = `${this.x}px`;
+    el.style.top = `${this.y}px`;
+    el.style.width = `${this.width}px`;
+    el.style.height = `${this.height}px`;
+
+    el.dataset.id = this.id;
+
+    // ドラッグハンドル（ヘッダー）
+    const header = document.createElement("div");
+    header.className = "item-header";
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "item-delete-btn";
+    deleteBtn.textContent = "×";
+    deleteBtn.title = "削除";
+
+    header.appendChild(deleteBtn);
+    el.appendChild(header);
+
+    // SVGキャンバス
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "pen-canvas");
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("height", "100%");
+
+    // 既存のパスを描画
+    this.paths.forEach((path) => {
+      const pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      pathEl.setAttribute("d", this.pathToSvgD(path.points));
+      pathEl.setAttribute("stroke", path.color || this.color);
+      pathEl.setAttribute("stroke-width", path.width || this.strokeWidth);
+      pathEl.setAttribute("fill", "none");
+      pathEl.setAttribute("stroke-linecap", "round");
+      pathEl.setAttribute("stroke-linejoin", "round");
+      svg.appendChild(pathEl);
+    });
+
+    el.appendChild(svg);
+
+    // リサイズハンドル
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className = "item-resize-handle";
+    el.appendChild(resizeHandle);
+
+    return el;
+  }
+
+  // 新しいパスを追加
+  addPath(points, color, width) {
+    this.paths.push({
+      points: points,
+      color: color || this.color,
+      width: width || this.strokeWidth,
+    });
   }
 }
 
@@ -404,6 +704,12 @@ class CanvasManager {
           case "text":
             item = new TextItem(itemData);
             break;
+          case "image":
+            item = new ImageItem(itemData);
+            break;
+          case "pen":
+            item = new PenItem(itemData);
+            break;
           default:
             console.warn("Unknown item type:", itemData.type);
         }
@@ -417,7 +723,124 @@ class CanvasManager {
     }
   }
 
+  // アイテムを削除
+  removeItem(itemId) {
+    this.items.delete(itemId);
+    const el = this.container.querySelector(`[data-id="${itemId}"]`);
+    if (el) el.remove();
+    this.save();
+  }
+
+  // アイテムの位置を更新
+  updateItemPosition(itemId, x, y) {
+    const item = this.items.get(itemId);
+    if (item) {
+      item.x = x;
+      item.y = y;
+      this.save();
+    }
+  }
+
+  // アイテムのサイズを更新
+  updateItemSize(itemId, width, height) {
+    const item = this.items.get(itemId);
+    if (item) {
+      item.width = width;
+      item.height = height;
+      this.save();
+    }
+  }
+
+  // ペン描画モード開始
+  startPenMode(itemId) {
+    this.penModeItemId = itemId;
+    this.isDrawing = false;
+    this.currentPath = [];
+
+    const itemEl = this.container.querySelector(`[data-id="${itemId}"]`);
+    if (itemEl) {
+      itemEl.classList.add("pen-mode");
+      const svg = itemEl.querySelector(".pen-canvas");
+      if (svg) {
+        this.setupPenEvents(itemEl, svg, itemId);
+      }
+    }
+  }
+
+  // ペン描画モード終了
+  stopPenMode() {
+    if (this.penModeItemId) {
+      const itemEl = this.container.querySelector(`[data-id="${this.penModeItemId}"]`);
+      if (itemEl) {
+        itemEl.classList.remove("pen-mode");
+      }
+    }
+    this.penModeItemId = null;
+    this.isDrawing = false;
+    this.currentPath = [];
+  }
+
+  // ペン描画イベントのセットアップ
+  setupPenEvents(itemEl, svg, itemId) {
+    const item = this.items.get(itemId);
+    if (!item) return;
+
+    let currentPathEl = null;
+
+    const getLocalCoords = (e) => {
+      const rect = svg.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+    };
+
+    const onMouseDown = (e) => {
+      if (e.target.closest(".item-header") || e.target.closest(".item-resize-handle")) return;
+
+      this.isDrawing = true;
+      this.currentPath = [getLocalCoords(e)];
+
+      currentPathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      currentPathEl.setAttribute("stroke", item.color);
+      currentPathEl.setAttribute("stroke-width", item.strokeWidth);
+      currentPathEl.setAttribute("fill", "none");
+      currentPathEl.setAttribute("stroke-linecap", "round");
+      currentPathEl.setAttribute("stroke-linejoin", "round");
+      svg.appendChild(currentPathEl);
+    };
+
+    const onMouseMove = (e) => {
+      if (!this.isDrawing || !currentPathEl) return;
+
+      const coords = getLocalCoords(e);
+      this.currentPath.push(coords);
+
+      const d = item.pathToSvgD(this.currentPath);
+      currentPathEl.setAttribute("d", d);
+    };
+
+    const onMouseUp = () => {
+      if (!this.isDrawing) return;
+
+      if (this.currentPath.length > 1) {
+        item.addPath(this.currentPath, item.color, item.strokeWidth);
+        this.save();
+      }
+
+      this.isDrawing = false;
+      this.currentPath = [];
+      currentPathEl = null;
+    };
+
+    svg.addEventListener("mousedown", onMouseDown);
+    svg.addEventListener("mousemove", onMouseMove);
+    svg.addEventListener("mouseup", onMouseUp);
+    svg.addEventListener("mouseleave", onMouseUp);
+  }
+
   setupInteractions() {
+    // ダブルクリックで新規作成
     this.container.addEventListener("dblclick", (e) => {
       if (e.target !== this.container) return;
 
@@ -437,17 +860,178 @@ class CanvasManager {
       );
       if (el) el.focus();
     });
+
+    // ドラッグ移動
+    let dragState = null;
+
+    this.container.addEventListener("mousedown", (e) => {
+      const header = e.target.closest(".item-header");
+      if (!header) return;
+
+      const itemEl = header.closest(".canvas-item");
+      if (!itemEl) return;
+
+      e.preventDefault();
+      itemEl.classList.add("dragging");
+
+      dragState = {
+        itemId: itemEl.dataset.id,
+        itemEl: itemEl,
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: parseInt(itemEl.style.left),
+        origY: parseInt(itemEl.style.top),
+      };
+    });
+
+    // リサイズ
+    let resizeState = null;
+
+    this.container.addEventListener("mousedown", (e) => {
+      if (!e.target.classList.contains("item-resize-handle")) return;
+
+      const itemEl = e.target.closest(".canvas-item");
+      if (!itemEl) return;
+
+      e.preventDefault();
+      itemEl.classList.add("resizing");
+
+      resizeState = {
+        itemId: itemEl.dataset.id,
+        itemEl: itemEl,
+        startX: e.clientX,
+        startY: e.clientY,
+        origWidth: parseInt(itemEl.style.width),
+        origHeight: parseInt(itemEl.style.height),
+      };
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      // ドラッグ処理
+      if (dragState) {
+        const dx = e.clientX - dragState.startX;
+        const dy = e.clientY - dragState.startY;
+        const newX = dragState.origX + dx;
+        const newY = dragState.origY + dy;
+
+        dragState.itemEl.style.left = `${newX}px`;
+        dragState.itemEl.style.top = `${newY}px`;
+      }
+
+      // リサイズ処理
+      if (resizeState) {
+        const dx = e.clientX - resizeState.startX;
+        const dy = e.clientY - resizeState.startY;
+        const newWidth = Math.max(100, resizeState.origWidth + dx);
+        const newHeight = Math.max(60, resizeState.origHeight + dy);
+
+        resizeState.itemEl.style.width = `${newWidth}px`;
+        resizeState.itemEl.style.height = `${newHeight}px`;
+      }
+    });
+
+    document.addEventListener("mouseup", () => {
+      // ドラッグ終了
+      if (dragState) {
+        dragState.itemEl.classList.remove("dragging");
+        const newX = parseInt(dragState.itemEl.style.left);
+        const newY = parseInt(dragState.itemEl.style.top);
+        this.updateItemPosition(dragState.itemId, newX, newY);
+        dragState = null;
+      }
+
+      // リサイズ終了
+      if (resizeState) {
+        resizeState.itemEl.classList.remove("resizing");
+        const newWidth = parseInt(resizeState.itemEl.style.width);
+        const newHeight = parseInt(resizeState.itemEl.style.height);
+        this.updateItemSize(resizeState.itemId, newWidth, newHeight);
+        resizeState = null;
+      }
+    });
+
+    // 削除ボタン
+    this.container.addEventListener("click", (e) => {
+      if (!e.target.classList.contains("item-delete-btn")) return;
+
+      const itemEl = e.target.closest(".canvas-item");
+      if (!itemEl) return;
+
+      if (confirm("このメモを削除しますか？")) {
+        this.removeItem(itemEl.dataset.id);
+      }
+    });
   }
 }
 
 /* ========================================
-   OCRサービス（モック実装）
+   OCRサービス（Bedrock Vision API）
    ======================================== */
+class OcrError extends Error {
+  constructor(message, details) {
+    super(message);
+    this.name = "OcrError";
+    this.details = details;
+  }
+}
+
 const OcrService = {
   async processImage(file) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+
+    const requestTime = new Date().toISOString();
+    let response;
+    let responseData;
+
+    try {
+      response = await fetch(`${API_ENDPOINT}/ocr/jobs`, {
+        method: "POST",
+        body: formData,
+      });
+
+      responseData = await response.json().catch(() => null);
+    } catch (networkError) {
+      throw new OcrError("ネットワークエラーが発生しました", {
+        type: "NETWORK_ERROR",
+        timestamp: requestTime,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        error: networkError.message,
+      });
+    }
+
+    if (!response.ok) {
+      throw new OcrError(
+        responseData?.error || `HTTPエラー: ${response.status}`,
+        {
+          type: "HTTP_ERROR",
+          timestamp: requestTime,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          httpStatus: response.status,
+          httpStatusText: response.statusText,
+          response: responseData,
+        }
+      );
+    }
+
+    if (responseData?.status === "FAILED") {
+      throw new OcrError(responseData.error || "OCR処理に失敗しました", {
+        type: "OCR_FAILED",
+        timestamp: requestTime,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        jobId: responseData.job_id,
+        response: responseData,
+      });
+    }
+
     return {
-      text: `【OCRモック結果】\nファイル名: ${file.name}\nサイズ: ${Math.round(file.size / 1024)}KB\n\nここにOCRで抽出されたテキストが表示されます。`,
+      text: responseData?.text || "",
     };
   },
 };
@@ -625,10 +1209,111 @@ document.addEventListener("DOMContentLoaded", () => {
   // キャンバス関連イベント
   function setupCanvasEvents() {
     let dropPosition = { x: 100, y: 150 };
+    const ocrInput = document.getElementById("ocr-input");
+    const contextMenu = document.getElementById("context-menu");
+    let contextMenuPosition = { x: 0, y: 0 };
 
-    async function handleImageUpload(file, x, y) {
+    // コンテキストメニューを非表示
+    function hideContextMenu() {
+      contextMenu.classList.remove("active");
+    }
+
+    // コンテキストメニューを表示
+    function showContextMenu(x, y) {
+      contextMenuPosition = { x, y };
+      contextMenu.style.left = `${x}px`;
+      contextMenu.style.top = `${y}px`;
+      contextMenu.classList.add("active");
+    }
+
+    // 右クリックでコンテキストメニュー表示
+    const canvasArea = document.getElementById("canvas-area");
+    console.log("Setting up context menu on:", canvasArea);
+
+    canvasArea.addEventListener("contextmenu", (e) => {
+      console.log("Context menu event fired", e.target);
+      // canvas-item内でなければメニューを表示
+      const isOnItem = e.target.closest(".canvas-item");
+      if (!isOnItem) {
+        e.preventDefault();
+        showContextMenu(e.clientX, e.clientY);
+      }
+    });
+
+    // クリックでメニュー非表示
+    document.addEventListener("click", (e) => {
+      if (!contextMenu.contains(e.target)) {
+        hideContextMenu();
+      }
+    });
+
+    // Escキーでメニュー非表示
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        hideContextMenu();
+      }
+    });
+
+    // コンテキストメニューのアクション
+    contextMenu.addEventListener("click", (e) => {
+      const action = e.target.dataset.action;
+      if (!action) return;
+
+      hideContextMenu();
+
+      switch (action) {
+        case "add-text":
+          const newItem = new TextItem({
+            x: contextMenuPosition.x,
+            y: contextMenuPosition.y,
+            width: 200,
+            height: 100,
+            content: "",
+          });
+          canvasManager.addItem(newItem);
+          const el = canvasManager.container.querySelector(
+            `[data-id="${newItem.id}"] textarea`
+          );
+          if (el) el.focus();
+          break;
+
+        case "add-ocr":
+          dropPosition = contextMenuPosition;
+          ocrInput.click();
+          break;
+
+        case "add-image":
+          dropPosition = contextMenuPosition;
+          imageInput.click();
+          break;
+
+        case "add-pen":
+          const penItem = new PenItem({
+            x: contextMenuPosition.x,
+            y: contextMenuPosition.y,
+            width: 300,
+            height: 200,
+          });
+          canvasManager.addItem(penItem);
+          canvasManager.startPenMode(penItem.id);
+          break;
+      }
+    });
+
+    // ファイルをBase64 Data URLに変換
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // OCR処理
+    async function handleOcrUpload(file, x, y) {
       if (!file.type.startsWith("image/")) {
-        alert("画像ファイルを選択してください");
+        Toast.error("ファイル形式エラー", "画像ファイル（PNG、JPEG）を選択してください");
         return;
       }
 
@@ -652,11 +1337,57 @@ document.addEventListener("DOMContentLoaded", () => {
         if (el) el.focus();
       } catch (error) {
         console.error("OCR処理エラー:", error);
-        alert("OCR処理中にエラーが発生しました");
+        const errorDetails = error instanceof OcrError ? error.details : {
+          type: "UNKNOWN_ERROR",
+          timestamp: new Date().toISOString(),
+          error: error.message,
+        };
+        Toast.error(
+          "OCR処理エラー",
+          error.message || "OCR処理中にエラーが発生しました",
+          errorDetails
+        );
       } finally {
         loadingOverlay.classList.remove("active");
       }
     }
+
+    // 画像として配置
+    async function handleImageUpload(file, x, y) {
+      if (!file.type.startsWith("image/")) {
+        Toast.error("ファイル形式エラー", "画像ファイル（PNG、JPEG）を選択してください");
+        return;
+      }
+
+      const dataUrl = await fileToDataUrl(file);
+      const newItem = new ImageItem({
+        x: x,
+        y: y,
+        width: 300,
+        height: 200,
+        src: dataUrl,
+      });
+
+      canvasManager.addItem(newItem);
+    }
+
+    // OCRボタン
+    document.getElementById("btn-ocr").addEventListener("click", () => {
+      dropPosition = {
+        x: window.innerWidth / 2 - 150,
+        y: window.innerHeight / 2 - 75,
+      };
+      ocrInput.click();
+    });
+
+    // OCRファイル選択
+    ocrInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        handleOcrUpload(file, dropPosition.x, dropPosition.y);
+      }
+      ocrInput.value = "";
+    });
 
     // 画像ボタン
     document.getElementById("btn-image").addEventListener("click", () => {
@@ -667,7 +1398,7 @@ document.addEventListener("DOMContentLoaded", () => {
       imageInput.click();
     });
 
-    // ファイル選択
+    // 画像ファイル選択
     imageInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -714,11 +1445,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
+    // ペンボタン
+    document.getElementById("btn-pen").addEventListener("click", () => {
+      const penItem = new PenItem({
+        x: window.innerWidth / 2 - 150,
+        y: window.innerHeight / 2 - 100,
+        width: 300,
+        height: 200,
+      });
+      canvasManager.addItem(penItem);
+      canvasManager.startPenMode(penItem.id);
+    });
+
     // 保存ボタン
     document.getElementById("btn-save").addEventListener("click", () => {
       if (canvasManager) {
         canvasManager.save();
-        alert("保存しました");
+        Toast.success("保存完了", "キャンバスを保存しました");
       }
     });
   }

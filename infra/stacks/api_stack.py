@@ -1,5 +1,6 @@
 from aws_cdk import (
     CfnOutput,
+    Duration,
     RemovalPolicy,
     Stack,
 )
@@ -11,6 +12,9 @@ from aws_cdk import (
 )
 from aws_cdk import (
     aws_cloudfront_origins as origins,
+)
+from aws_cdk import (
+    aws_iam as iam,
 )
 from aws_cdk import (
     aws_lambda as lambda_,
@@ -46,6 +50,44 @@ class ApiStack(Stack):
             handler="handlers.hello.handler",
         )
 
+        # S3 Bucket for OCR (temporary storage, 7-day retention)
+        ocr_bucket = s3.Bucket(
+            self,
+            "OcrBucket",
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    expiration=Duration.days(7),
+                )
+            ],
+        )
+
+        # Lambda: OCR Handler
+        ocr_handler = lambda_.Function(
+            self,
+            "OcrHandler",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            code=lambda_.Code.from_asset("../api"),
+            handler="handlers.ocr.handler",
+            timeout=Duration.seconds(30),
+            memory_size=512,
+            environment={
+                "OCR_BUCKET_NAME": ocr_bucket.bucket_name,
+            },
+        )
+
+        # Grant OCR Lambda permissions
+        ocr_bucket.grant_write(ocr_handler)
+
+        # Grant Bedrock InvokeModel permission
+        ocr_handler.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["bedrock:InvokeModel"],
+                resources=["arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"],
+            )
+        )
+
         # API Gateway
         api = apigw.RestApi(
             self,
@@ -56,6 +98,7 @@ class ApiStack(Stack):
                 allow_methods=apigw.Cors.ALL_METHODS,
                 allow_headers=["Content-Type"],
             ),
+            binary_media_types=["multipart/form-data"],
         )
 
         # /hello endpoint
@@ -71,6 +114,14 @@ class ApiStack(Stack):
         memo.add_method("GET", apigw.LambdaIntegration(memo_handler))
         memo.add_method("PUT", apigw.LambdaIntegration(memo_handler))
         memo.add_method("DELETE", apigw.LambdaIntegration(memo_handler))
+
+        # /ocr/jobs endpoints
+        ocr = api.root.add_resource("ocr")
+        ocr_jobs = ocr.add_resource("jobs")
+        ocr_jobs.add_method("POST", apigw.LambdaIntegration(ocr_handler))
+
+        ocr_job = ocr_jobs.add_resource("{job_id}")
+        ocr_job.add_method("GET", apigw.LambdaIntegration(ocr_handler))
 
         # S3 Bucket for Frontend
         frontend_bucket = s3.Bucket(
